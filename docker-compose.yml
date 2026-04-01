@@ -1,0 +1,25 @@
+# LightRAG full-stack (API + WebUI) deployment.
+# One-time: copy env.example to .env and set LLM/embedding config; create data dirs (see docs/DockerDeployment.md).
+
+services:
+  lightrag:
+    container_name: lightrag
+    image: ghcr.io/hkuds/lightrag:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      tags:
+        - ghcr.io/hkuds/lightrag:latest
+    ports:
+      - "${PORT:-9621}:9621"
+    volumes:
+      - ./data/rag_storage:/app/data/rag_storage
+      - ./data/inputs:/app/data/inputs
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Optional: mount config.ini for storage/backend overrides (create empty file if missing)
+    # - ./config.ini:/app/config.ini
