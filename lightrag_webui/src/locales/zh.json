@@ -6,6 +6,18 @@
     "dark": "深色",
     "system": "系统"
   },
+  "workspace": {
+    "loadingKbList": "正在加载知识库列表…",
+    "listLoadFailed": "无法加载知识库列表：{{error}}",
+    "retry": "重试",
+    "noKbAssigned": "当前账号未被分配到任何知识库，请联系管理员授权。",
+    "currentKb": "当前知识库：{{name}}",
+    "scopeHint": "文档、检索与图谱操作仅作用于当前知识库。",
+    "accessAdjusted": "您对该知识库的访问权限已变更，已切换到可用的知识库。",
+    "selectKbFirst": "请先在顶部栏选择知识库。",
+    "blockedTitle": "需要先选择知识库",
+    "blockedDescription": "请在顶部栏的工作区下拉框中选择知识库。文档、检索与图谱操作仅在选定知识库后生效。"
+  },
   "header": {
     "documents": "文档",
     "knowledgeGraph": "知识图谱",
@@ -40,11 +52,14 @@
     "cancel": "取消",
     "save": "保存",
     "saving": "保存中...",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "loading": "加载中…"
   },
   "admin": {
     "title": "管理控制台",
     "subtitle": "管理知识库与工作区访问权限（默认拒绝）。",
+    "kbsHint": "在此创建/删除知识库记录。若服务器数据目录里已有子文件夹（与「工作区」同名），创建同名工作区即可挂载原有数据；名称须为字母、数字、下划线或连字符。日常维护由管理员在本页完成。",
+    "aclHint": "先在上表选中一个工作区，再输入要授权的用户名并「授权」；未在列表中的用户将无法在顶栏选择该知识库。撤销即收回访问。",
     "refresh": "刷新",
     "kbs": "知识库",
     "workspace": "工作区 (如 tech_kb)",
@@ -53,6 +68,9 @@
     "create": "创建",
     "noKbs": "暂无知识库。",
     "delete": "删除",
+    "deleteConfirmTitle": "删除知识库",
+    "deleteConfirmDescription": "将删除「{{workspace}}」的登记信息，并尽力删除服务器工作目录下同名文件夹中的数据。此操作不可恢复。是否继续？",
+    "deleteSuccess": "已删除知识库 {{workspace}}",
     "acl": "工作区访问 (ACL)",
     "selectedWorkspace": "当前选中",
     "grantUser": "待授权用户名",
@@ -140,6 +158,8 @@
       "title": "文档管理",
       "scanButton": "扫描/重试",
       "scanTooltip": "扫描处理输入目录中的文档，同时重新处理所有失败的文档",
+      "reprocessButton": "重排队列",
+      "reprocessTooltip": "将失败、等待中及异常卡住为「处理中」的文档重新入队（例如流水线中断后）",
       "refreshTooltip": "复位文档清单",
       "pipelineStatusButton": "流水线",
       "pipelineStatusTooltip": "查看文档处理流水线状态",
@@ -170,7 +190,8 @@
       "errors": {
         "loadFailed": "加载文档失败\n{{error}}",
         "scanFailed": "扫描文档失败\n{{error}}",
-        "scanProgressFailed": "获取扫描进度失败\n{{error}}"
+        "scanProgressFailed": "获取扫描进度失败\n{{error}}",
+        "reprocessFailed": "重新入队失败\n{{error}}"
       },
       "fileNameLabel": "文件名",
       "showButton": "显示",
@@ -204,6 +225,8 @@
     }
   },
   "graphPanel": {
+    "loading": "正在加载图谱数据…",
+    "switchingTheme": "正在切换主题…",
     "dataIsTruncated": "图数据已截断至最大返回节点数",
     "statusDialog": {
       "title": "LightRAG 服务器设置",
@@ -468,6 +491,7 @@
     }
   },
   "apiSite": {
+    "docsFrameTitle": "OpenAPI / Swagger 接口文档",
     "loading": "正在加载 API 文档..."
   },
   "apiKeyAlert": {

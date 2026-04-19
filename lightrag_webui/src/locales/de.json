@@ -6,6 +6,16 @@
     "dark": "Dunkel",
     "system": "System"
   },
+  "workspace": {
+    "loadingKbList": "Wissensdatenbanken werden geladen…",
+    "listLoadFailed": "Wissensdatenbanken konnten nicht geladen werden: {{error}}",
+    "retry": "Erneut versuchen",
+    "noKbAssigned": "Ihnen ist keine Wissensdatenbank zugewiesen. Bitte kontaktieren Sie einen Administrator.",
+    "currentKb": "Wissensdatenbank: {{name}}",
+    "scopeHint": "Dokumente, Abfrage und Graph gelten nur für diese Datenbank.",
+    "accessAdjusted": "Ihr Zugriff auf diese Datenbank hat sich geändert. Es wurde auf eine verfügbare Datenbank umgestellt.",
+    "selectKbFirst": "Wählen Sie zuerst eine Wissensdatenbank in der Kopfzeile."
+  },
   "header": {
     "documents": "Dokumente",
     "knowledgeGraph": "Wissensgraph",
@@ -117,6 +127,8 @@
       "title": "Dokumentenverwaltung",
       "scanButton": "Scannen/Wiederholen",
       "scanTooltip": "Dokumente im Eingabeordner scannen und verarbeiten sowie alle fehlgeschlagenen Dokumente erneut verarbeiten",
+      "reprocessButton": "Wieder einreihen",
+      "reprocessTooltip": "Fehlgeschlagene, ausstehende und hängengebliebene Verarbeitungen erneut einreihen (z. B. nach Pipeline-Abbruch)",
       "refreshTooltip": "Dokumentenliste zurücksetzen",
       "pipelineStatusButton": "Pipeline",
       "pipelineStatusTooltip": "Status der Dokumentverarbeitungs-Pipeline anzeigen",
@@ -147,7 +159,8 @@
       "errors": {
         "loadFailed": "Dokumente konnten nicht geladen werden\n{{error}}",
         "scanFailed": "Dokumente konnten nicht gescannt werden\n{{error}}",
-        "scanProgressFailed": "Scan-Fortschritt konnte nicht abgerufen werden\n{{error}}"
+        "scanProgressFailed": "Scan-Fortschritt konnte nicht abgerufen werden\n{{error}}",
+        "reprocessFailed": "Dokumente konnten nicht erneut eingereiht werden\n{{error}}"
       },
       "fileNameLabel": "Dateiname",
       "showButton": "Anzeigen",

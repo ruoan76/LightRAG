@@ -13,16 +13,24 @@ import FileUploader from '@/components/ui/FileUploader'
 import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
 import { uploadDocument } from '@/api/lightrag'
+import { workspaceActionsBlockedFromStores } from '@/hooks/useWorkspaceActionsBlocked'
+import { useWorkspaceBlockedHint } from '@/hooks/useWorkspaceKbUi'
 
 import { UploadIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface UploadDocumentsDialogProps {
   onDocumentsUploaded?: () => Promise<void>
+  /** When true, user cannot open upload (e.g. no knowledge base selected). */
+  disabled?: boolean
 }
 
-export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDocumentsDialogProps) {
+export default function UploadDocumentsDialog({
+  onDocumentsUploaded,
+  disabled: triggerDisabled
+}: UploadDocumentsDialogProps) {
   const { t } = useTranslation()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
   const [open, setOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [progresses, setProgresses] = useState<Record<string, number>>({})
@@ -58,6 +66,7 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
 
   const handleDocumentsUpload = useCallback(
     async (filesToUpload: File[]) => {
+      if (workspaceActionsBlockedFromStores()) return
       setIsUploading(true)
       let hasSuccessfulUpload = false
 
@@ -182,6 +191,9 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
     <Dialog
       open={open}
       onOpenChange={(open) => {
+        if (triggerDisabled && open) {
+          return
+        }
         if (isUploading) {
           return
         }
@@ -193,7 +205,17 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="default" side="bottom" tooltip={t('documentPanel.uploadDocuments.tooltip')} size="sm">
+        <Button
+          variant="default"
+          side="bottom"
+          tooltip={
+            triggerDisabled
+              ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+              : t('documentPanel.uploadDocuments.tooltip')
+          }
+          size="sm"
+          disabled={!!triggerDisabled}
+        >
           <UploadIcon /> {t('documentPanel.uploadDocuments.button')}
         </Button>
       </DialogTrigger>

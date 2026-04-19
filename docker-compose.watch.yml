@@ -1,0 +1,33 @@
+# Local dev: rebuild + recreate container when sources change (Compose Watch).
+# Works with OrbStack the same as Docker Desktop — uses your machine’s Docker engine.
+#
+# Requires Docker Compose v2.22+ (`docker compose version`).
+#
+# Usage (from repo root):
+#   ./scripts/docker-watch-orbstack.sh
+#   # or:
+#   docker compose -f docker-compose.yml -f docker-compose.host-ollama.yml -f docker-compose.watch.yml watch
+#
+# Note: This merges with docker-compose.yml (which defines `build:`). Do not merge with
+# docker-compose.orbstack.yml here — that file omits build and is for pull-only deploys.
+
+services:
+  lightrag:
+    develop:
+      watch:
+        - action: rebuild
+          path: ./lightrag_webui
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./lightrag
+          ignore:
+            - "**/__pycache__/"
+            - "**/*.pyc"
+            - "**/.pytest_cache/"
+        - action: rebuild
+          path: ./Dockerfile
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock

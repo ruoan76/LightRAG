@@ -21,8 +21,13 @@ import SettingsDisplay from '@/components/graph/SettingsDisplay'
 import Legend from '@/components/graph/Legend'
 import LegendButton from '@/components/graph/LegendButton'
 
+import { Loader2 } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
+import { useKbListStillResolving, useWorkspaceSelectKbPrompt } from '@/hooks/useWorkspaceKbUi'
+import WorkspaceRequiredCallout from '@/components/workspace/WorkspaceRequiredCallout'
+import { useTranslation } from 'react-i18next'
 import { useGraphStore } from '@/stores/graph'
+import useLightragGraph from '@/hooks/useLightragGraph'
 import { labelColorDarkTheme, labelColorLightTheme } from '@/lib/constants'
 
 import '@react-sigma/core/lib/style.css'
@@ -108,6 +113,13 @@ const GraphEvents = () => {
 }
 
 const GraphViewer = () => {
+  const { t } = useTranslation()
+  const kbListStillResolving = useKbListStillResolving()
+  const showSelectKbPrompt = useWorkspaceSelectKbPrompt()
+
+  // Drive graph fetch / expand / prune here so data loads even when the property panel is hidden
+  const { getNode, getEdge } = useLightragGraph()
+
   const [isThemeSwitching, setIsThemeSwitching] = useState(false)
   const sigmaRef = useRef<any>(null)
   const prevTheme = useRef<string>('')
@@ -135,18 +147,24 @@ const GraphViewer = () => {
     const isThemeChange = prevTheme.current && prevTheme.current !== theme
     if (isThemeChange) {
       setIsThemeSwitching(true)
-      console.log('Theme switching detected:', prevTheme.current, '->', theme)
+      if (import.meta.env.DEV) {
+        console.log('Theme switching detected:', prevTheme.current, '->', theme)
+      }
 
       // Reset theme switching state after a short delay
       const timer = setTimeout(() => {
         setIsThemeSwitching(false)
-        console.log('Theme switching completed')
+        if (import.meta.env.DEV) {
+          console.log('Theme switching completed')
+        }
       }, 150)
 
       return () => clearTimeout(timer)
     }
     prevTheme.current = theme
-    console.log('Initialized sigma settings for theme:', theme)
+    if (import.meta.env.DEV) {
+      console.log('Initialized sigma settings for theme:', theme)
+    }
   }, [theme])
 
   // Clean up sigma instance when component unmounts
@@ -160,7 +178,9 @@ const GraphViewer = () => {
           // Destroy sigma，and clear WebGL context
           sigma.kill();
           useGraphStore.getState().setSigmaInstance(null);
-          console.log('Cleared sigma instance on Graphviewer unmount');
+          if (import.meta.env.DEV) {
+            console.log('Cleared sigma instance on Graphviewer unmount')
+          }
         } catch (error) {
           console.error('Error cleaning up sigma instance:', error);
         }
@@ -227,7 +247,7 @@ const GraphViewer = () => {
 
         {showPropertyPanel && (
           <div className="absolute top-2 right-2 z-10">
-            <PropertiesView />
+            <PropertiesView getNode={getNode} getEdge={getEdge} />
           </div>
         )}
 
@@ -244,12 +264,34 @@ const GraphViewer = () => {
         <SettingsDisplay />
       </SigmaContainer>
 
+      {kbListStillResolving && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center bg-background/90 px-4 backdrop-blur-[1px]"
+          aria-busy
+        >
+          <div className="flex max-w-sm flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+            <Loader2 className="size-8 shrink-0 animate-spin text-primary" aria-hidden />
+            <p>{t('workspace.loadingKbList')}</p>
+          </div>
+        </div>
+      )}
+
+      {showSelectKbPrompt && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/90 px-4 backdrop-blur-[1px]">
+          <div className="w-full max-w-md shadow-sm">
+            <WorkspaceRequiredCallout />
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay - shown when data is loading or theme is switching */}
-      {(isFetching || isThemeSwitching) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+      {!kbListStillResolving && !showSelectKbPrompt && (isFetching || isThemeSwitching) && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80" aria-busy>
           <div className="text-center">
-            <div className="mb-2 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
-            <p>{isThemeSwitching ? 'Switching Theme...' : 'Loading Graph Data...'}</p>
+            <Loader2 className="mx-auto mb-2 size-8 animate-spin text-primary" aria-hidden />
+            <p className="text-muted-foreground">
+              {isThemeSwitching ? t('graphPanel.switchingTheme') : t('graphPanel.loading')}
+            </p>
           </div>
         </div>
       )}

@@ -6,6 +6,16 @@
     "dark": "Sombre",
     "system": "Système"
   },
+  "workspace": {
+    "loadingKbList": "Chargement de vos bases de connaissances…",
+    "listLoadFailed": "Impossible de charger les bases de connaissances : {{error}}",
+    "retry": "Réessayer",
+    "noKbAssigned": "Aucune base de connaissances ne vous est assignée. Contactez un administrateur.",
+    "currentKb": "Base de connaissances : {{name}}",
+    "scopeHint": "Documents, récupération et graphe s’appliquent uniquement à cette base.",
+    "accessAdjusted": "Votre accès à cette base a changé. Basculement vers une base disponible.",
+    "selectKbFirst": "Sélectionnez d’abord une base de connaissances dans l’en-tête."
+  },
   "header": {
     "documents": "Documents",
     "knowledgeGraph": "Graphe de connaissances",
@@ -117,6 +127,8 @@
       "title": "Gestion des documents",
       "scanButton": "Scanner/Retraiter",
       "scanTooltip": "Scanner et traiter les documents dans le dossier d'entrée, et retraiter également tous les documents échoués",
+      "reprocessButton": "Remettre en file",
+      "reprocessTooltip": "Remettre en file les documents échoués, en attente ou bloqués en traitement (p. ex. après interruption du pipeline)",
       "refreshTooltip": "Réinitialiser la liste des documents",
       "pipelineStatusButton": "Pipeline",
       "pipelineStatusTooltip": "Voir l'état du pipeline de traitement des documents",
@@ -147,7 +159,8 @@
       "errors": {
         "loadFailed": "Échec du chargement des documents\n{{error}}",
         "scanFailed": "Échec de la numérisation des documents\n{{error}}",
-        "scanProgressFailed": "Échec de l'obtention de la progression de la numérisation\n{{error}}"
+        "scanProgressFailed": "Échec de l'obtention de la progression de la numérisation\n{{error}}",
+        "reprocessFailed": "Échec de la remise en file des documents\n{{error}}"
       },
       "fileNameLabel": "Nom du fichier",
       "showButton": "Afficher",

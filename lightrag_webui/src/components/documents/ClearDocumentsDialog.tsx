@@ -14,6 +14,8 @@ import Checkbox from '@/components/ui/Checkbox'
 import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
 import { clearDocuments, clearCache } from '@/api/lightrag'
+import { workspaceActionsBlockedFromStores } from '@/hooks/useWorkspaceActionsBlocked'
+import { useWorkspaceBlockedHint } from '@/hooks/useWorkspaceKbUi'
 
 import { EraserIcon, AlertTriangleIcon, Loader2Icon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -36,10 +38,15 @@ const Label = ({
 
 interface ClearDocumentsDialogProps {
   onDocumentsCleared?: () => Promise<void>
+  disabled?: boolean
 }
 
-export default function ClearDocumentsDialog({ onDocumentsCleared }: ClearDocumentsDialogProps) {
+export default function ClearDocumentsDialog({
+  onDocumentsCleared,
+  disabled: triggerDisabled
+}: ClearDocumentsDialogProps) {
   const { t } = useTranslation()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
   const [open, setOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [clearCacheOption, setClearCacheOption] = useState(false)
@@ -77,6 +84,7 @@ export default function ClearDocumentsDialog({ onDocumentsCleared }: ClearDocume
 
   const handleClear = useCallback(async () => {
     if (!isConfirmEnabled || isClearing) return
+    if (workspaceActionsBlockedFromStores()) return
 
     setIsClearing(true)
 
@@ -130,9 +138,25 @@ export default function ClearDocumentsDialog({ onDocumentsCleared }: ClearDocume
   }, [isConfirmEnabled, isClearing, clearCacheOption, setOpen, t, onDocumentsCleared, CLEAR_TIMEOUT])
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (triggerDisabled && next) return
+        setOpen(next)
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" side="bottom" tooltip={t('documentPanel.clearDocuments.tooltip')} size="sm">
+        <Button
+          variant="outline"
+          side="bottom"
+          tooltip={
+            triggerDisabled
+              ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+              : t('documentPanel.clearDocuments.tooltip')
+          }
+          size="sm"
+          disabled={!!triggerDisabled}
+        >
           <EraserIcon/> {t('documentPanel.clearDocuments.button')}
         </Button>
       </DialogTrigger>

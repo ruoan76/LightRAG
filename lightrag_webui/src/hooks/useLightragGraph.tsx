@@ -7,6 +7,10 @@ import { useGraphStore, RawGraph, RawNodeType, RawEdgeType } from '@/stores/grap
 import { toast } from 'sonner'
 import { queryGraphs } from '@/api/lightrag'
 import { useBackendState } from '@/stores/state'
+import {
+  useWorkspaceActionsBlocked,
+  workspaceActionsBlockedFromStores
+} from '@/hooks/useWorkspaceActionsBlocked'
 import { useSettingsStore } from '@/stores/settings'
 
 import seedrandom from 'seedrandom'
@@ -265,6 +269,7 @@ const useLightrangeGraph = () => {
   const sigmaGraph = useGraphStore.use.sigmaGraph()
   const maxQueryDepth = useSettingsStore.use.graphQueryMaxDepth()
   const maxNodes = useSettingsStore.use.graphMaxNodes()
+  const workspaceBlocked = useWorkspaceActionsBlocked()
   const isFetching = useGraphStore.use.isFetching()
   const nodeToExpand = useGraphStore.use.nodeToExpand()
   const nodeToPrune = useGraphStore.use.nodeToPrune()
@@ -314,7 +319,7 @@ const useLightrangeGraph = () => {
     }
 
     // Empty queryLabel should be only handle once(avoid infinite loop)
-    if (!queryLabel && emptyDataHandledRef.current) {
+    if (!workspaceBlocked && !queryLabel && emptyDataHandledRef.current) {
       return;
     }
 
@@ -346,9 +351,11 @@ const useLightrangeGraph = () => {
       // Declare a variable to store data promise
       let dataPromise: Promise<{ rawGraph: RawGraph | null; is_truncated: boolean | undefined } | null>;
 
-      // 1. If query label is not empty, use fetchGraph
-      if (currentQueryLabel) {
-        dataPromise = fetchGraph(currentQueryLabel, currentMaxQueryDepth, currentMaxNodes);
+      // 1. No workspace selected (signed-in user): do not call graph APIs; keep persisted queryLabel
+      if (workspaceBlocked) {
+        dataPromise = Promise.resolve({ rawGraph: null, is_truncated: false })
+      } else if (currentQueryLabel) {
+        dataPromise = fetchGraph(currentQueryLabel, currentMaxQueryDepth, currentMaxNodes)
       } else {
         // 2. If query label is empty, set data to null
         console.log('Query label is empty, show empty graph')
@@ -404,7 +411,7 @@ const useLightrangeGraph = () => {
           const isAuthError = errorMessage && errorMessage.includes('Authentication required');
 
           // Only clear queryLabel if it's not an auth error and current label is not empty
-          if (!isAuthError && currentQueryLabel) {
+          if (!isAuthError && currentQueryLabel && !workspaceBlocked) {
             useSettingsStore.getState().setQueryLabel('');
           }
 
@@ -455,12 +462,13 @@ const useLightrangeGraph = () => {
         state.setLastSuccessfulQueryLabel('') // Clear last successful query label on error
       })
     }
-  }, [queryLabel, maxQueryDepth, maxNodes, isFetching, t, graphDataVersion])
+  }, [queryLabel, maxQueryDepth, maxNodes, isFetching, t, graphDataVersion, workspaceBlocked])
 
   // Handle node expansion
   useEffect(() => {
     const handleNodeExpand = async (nodeId: string | null) => {
       if (!nodeId || !sigmaGraph || !rawGraph) return;
+      if (workspaceActionsBlockedFromStores()) return;
 
       try {
         // Get the node to expand
@@ -846,6 +854,7 @@ const useLightrangeGraph = () => {
   useEffect(() => {
     const handleNodePrune = (nodeId: string | null) => {
       if (!nodeId || !sigmaGraph || !rawGraph) return;
+      if (workspaceActionsBlockedFromStores()) return;
 
       try {
         const state = useGraphStore.getState();

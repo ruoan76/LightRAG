@@ -6,6 +6,16 @@
     "dark": "ダーク",
     "system": "システム"
   },
+  "workspace": {
+    "loadingKbList": "ナレッジベースを読み込み中…",
+    "listLoadFailed": "ナレッジベースを読み込めませんでした: {{error}}",
+    "retry": "再試行",
+    "noKbAssigned": "ナレッジベースが割り当てられていません。管理者に連絡してください。",
+    "currentKb": "ナレッジベース: {{name}}",
+    "scopeHint": "ドキュメント・検索・グラフの操作はこのナレッジベースのみに適用されます。",
+    "accessAdjusted": "このナレッジベースへのアクセスが変更されました。利用可能なベースに切り替えました。",
+    "selectKbFirst": "先にヘッダーでナレッジベースを選択してください。"
+  },
   "header": {
     "documents": "ドキュメント",
     "knowledgeGraph": "ナレッジグラフ",
@@ -45,6 +55,8 @@
   "admin": {
     "title": "管理コンソール",
     "subtitle": "ナレッジベースとワークスペースアクセスを管理（デフォルト拒否）。",
+    "kbsHint": "ここでナレッジベースの登録・削除を行います。既存のディスク上のデータに接続するには、サーバーの作業ディレクトリ内のサブフォルダ名と一致するワークスペース名を使います（英数字・アンダースコア・ハイフン）。日常的な管理はこの画面で行います。",
+    "aclHint": "上でワークスペースを選択し、ユーザー名を入力して「付与」。付与されていないユーザーはヘッダーでそのナレッジベースを選べません。「取り消し」でアクセスを削除します。",
     "refresh": "更新",
     "kbs": "ナレッジベース",
     "workspace": "ワークスペース (例: tech_kb)",
@@ -53,6 +65,9 @@
     "create": "作成",
     "noKbs": "ナレッジベースがありません。",
     "delete": "削除",
+    "deleteConfirmTitle": "ナレッジベースを削除",
+    "deleteConfirmDescription": "「{{workspace}}」の登録を削除し、可能な場合はサーバー上の同名フォルダデータも削除します。元に戻せません。続行しますか？",
+    "deleteSuccess": "ナレッジベース {{workspace}} を削除しました",
     "acl": "ワークスペースアクセス (ACL)",
     "selectedWorkspace": "選択中",
     "grantUser": "付与するユーザー名",
@@ -140,6 +155,8 @@
       "title": "ドキュメント管理",
       "scanButton": "スキャン/再試行",
       "scanTooltip": "入力フォルダ内のドキュメントをスキャンして処理し、失敗したすべてのドキュメントも再処理します",
+      "reprocessButton": "再キュー",
+      "reprocessTooltip": "失敗・保留・異常に処理中のままのドキュメントを再キューします（パイプライン中断後など）",
       "refreshTooltip": "ドキュメントリストをリセット",
       "pipelineStatusButton": "パイプライン",
       "pipelineStatusTooltip": "ドキュメント処理パイプラインのステータスを表示",
@@ -170,7 +187,8 @@
       "errors": {
         "loadFailed": "ドキュメントの読み込みに失敗しました\n{{error}}",
         "scanFailed": "ドキュメントのスキャンに失敗しました\n{{error}}",
-        "scanProgressFailed": "スキャン進捗の取得に失敗しました\n{{error}}"
+        "scanProgressFailed": "スキャン進捗の取得に失敗しました\n{{error}}",
+        "reprocessFailed": "ドキュメントの再キューに失敗しました\n{{error}}"
       },
       "fileNameLabel": "ファイル名",
       "showButton": "表示",

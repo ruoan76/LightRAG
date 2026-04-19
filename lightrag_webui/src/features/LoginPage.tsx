@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { ZapIcon } from 'lucide-react'
 import AppSettings from '@/components/AppSettings'
+import FullScreenLoader from '@/components/ui/FullScreenLoader'
 
 const LoginPage = () => {
   const navigate = useNavigate()
@@ -79,9 +80,8 @@ const LoginPage = () => {
     }
   }, [isAuthenticated, login, navigate])
 
-  // Don't render anything while checking auth
   if (checkingAuth) {
-    return null
+    return <FullScreenLoader />
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

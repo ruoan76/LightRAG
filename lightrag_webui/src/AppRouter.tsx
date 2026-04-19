@@ -1,5 +1,5 @@
 import '@/lib/extensions'; // Import all global extensions
-import { HashRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/state'
 import { navigationService } from '@/services/navigation'
@@ -7,6 +7,7 @@ import { Toaster } from 'sonner'
 import App from './App'
 import LoginPage from '@/features/LoginPage'
 import ThemeProvider from '@/components/ThemeProvider'
+import FullScreenLoader from '@/components/ui/FullScreenLoader'
 
 const AppContent = () => {
   const [initializing, setInitializing] = useState(true)
@@ -49,20 +50,8 @@ const AppContent = () => {
     }
   }, [isAuthenticated])
 
-  // Redirect effect for protected routes
-  useEffect(() => {
-    if (!initializing && !isAuthenticated) {
-      const currentPath = window.location.hash.slice(1);
-      if (currentPath !== '/login') {
-        console.log('Not authenticated, redirecting to login');
-        navigate('/login');
-      }
-    }
-  }, [initializing, isAuthenticated, navigate]);
-
-  // Show nothing while initializing
   if (initializing) {
-    return null
+    return <FullScreenLoader />
   }
 
   return (
@@ -70,7 +59,7 @@ const AppContent = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/*"
-        element={isAuthenticated ? <App /> : null}
+        element={isAuthenticated ? <App /> : <Navigate to="/login" replace />}
       />
     </Routes>
   )

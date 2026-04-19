@@ -43,6 +43,7 @@ temp/
 
 # JavaScript / frontend
 node_modules/
+lightrag_webui/coverage/
 
 # Framework-specific files
 local_neo4jWorkDir/

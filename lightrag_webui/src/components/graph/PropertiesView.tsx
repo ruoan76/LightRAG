@@ -2,16 +2,19 @@ import { useEffect, useState } from 'react'
 import { useGraphStore, RawNodeType, RawEdgeType } from '@/stores/graph'
 import Text from '@/components/ui/Text'
 import Button from '@/components/ui/Button'
-import useLightragGraph from '@/hooks/useLightragGraph'
 import { useTranslation } from 'react-i18next'
 import { GitBranchPlus, Scissors } from 'lucide-react'
 import EditablePropertyRow from './EditablePropertyRow'
 
+export type PropertiesViewProps = {
+  getNode: (nodeId: string) => RawNodeType | null
+  getEdge: (edgeId: string, dynamicId?: boolean) => RawEdgeType | null
+}
+
 /**
  * Component that view properties of elements in graph.
  */
-const PropertiesView = () => {
-  const { getNode, getEdge } = useLightragGraph()
+const PropertiesView = ({ getNode, getEdge }: PropertiesViewProps) => {
   const selectedNode = useGraphStore.use.selectedNode()
   const focusedNode = useGraphStore.use.focusedNode()
   const selectedEdge = useGraphStore.use.selectedEdge()

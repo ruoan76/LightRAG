@@ -1,0 +1,31 @@
+# Optional compose override: Ollama runs on the host machine (not inside Docker).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.host-ollama.yml up -d --build
+#   docker compose -f docker-compose.orbstack.yml -f docker-compose.host-ollama.yml up -d
+#
+# LLM_BINDING / LLM_MODEL: from project .env via ${...} (see "### LLM Configuration" in .env).
+# LLM_BINDING_HOST: always host.docker.internal here — in-container 127.0.0.1 is not the host.
+#
+# OrbStack + VPN/proxy: run `orb config show` and check `network_proxy` (often http://127.0.0.1:PORT).
+# Containers cannot use 127.0.0.1 for that proxy — use host.docker.internal (defaults below).
+# Override HTTP_PROXY/HTTPS_PROXY in .env if your proxy port differs.
+
+services:
+  lightrag:
+    environment:
+      LLM_BINDING: ${LLM_BINDING:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-default-model:latest}
+      LLM_BINDING_HOST: http://host.docker.internal:11434
+      # Ollama on host (same as LLM). If you switch embedding back to a remote API, remove this line or use compose without this override.
+      EMBEDDING_BINDING_HOST: http://host.docker.internal:11434
+      # Match OrbStack `network_proxy` but reachable from inside the container (see comment above).
+      HTTP_PROXY: ${HTTP_PROXY:-http://host.docker.internal:15236}
+      HTTPS_PROXY: ${HTTPS_PROXY:-http://host.docker.internal:15236}
+      ALL_PROXY: ${ALL_PROXY:-}
+      http_proxy: ${http_proxy:-http://host.docker.internal:15236}
+      https_proxy: ${https_proxy:-http://host.docker.internal:15236}
+      all_proxy: ${all_proxy:-}
+      # Prepend Docker/Ollama hosts: if .env sets NO_PROXY without host.docker.internal,
+      # httpx routes Ollama via HTTP_PROXY and streaming often returns 503.
+      NO_PROXY: localhost,127.0.0.1,host.docker.internal,${NO_PROXY:-}
+      no_proxy: localhost,127.0.0.1,host.docker.internal,${no_proxy:-}

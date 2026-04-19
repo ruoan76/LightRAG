@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/AlertDialog'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import {
   adminCreateKb,
   adminDeleteKb,
@@ -11,6 +21,8 @@ import {
   adminRevoke,
   type AdminKB
 } from '@/api/lightrag'
+import { useSettingsStore } from '@/stores/settings'
+import { errorMessage } from '@/lib/utils'
 
 export default function AdminConsole() {
   const { t } = useTranslation()
@@ -26,6 +38,8 @@ export default function AdminConsole() {
   const [newDescription, setNewDescription] = useState('')
 
   const [grantUsername, setGrantUsername] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const refreshKbs = async () => {
     const data = await adminListKbs()
@@ -92,16 +106,31 @@ export default function AdminConsole() {
     }
   }
 
-  const onDeleteKb = async (workspace: string) => {
-    if (!workspace) return
-    if (!window.confirm(`Delete knowledge base '${workspace}'?`)) return
+  const confirmDeleteKb = async () => {
+    if (!deleteTarget) return
+    const workspace = deleteTarget
     try {
       setError(null)
+      setDeleting(true)
+      const prevGlobal = useSettingsStore.getState().currentWorkspace
       await adminDeleteKb(workspace)
       if (selectedWorkspace === workspace) setSelectedWorkspace('')
-      await refreshKbs()
+      const data = await adminListKbs()
+      setKbs(data)
+      if (
+        prevGlobal === workspace ||
+        (prevGlobal != null && prevGlobal !== '' && !data.some((k) => k.workspace === prevGlobal))
+      ) {
+        useSettingsStore.getState().setCurrentWorkspace(data[0]?.workspace ?? null)
+      }
+      toast.success(t('admin.deleteSuccess', { workspace }))
+      setDeleteTarget(null)
     } catch (e: any) {
-      setError(e?.message || 'Failed to delete KB')
+      const msg = errorMessage(e) || e?.message || 'Failed to delete KB'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -130,6 +159,40 @@ export default function AdminConsole() {
 
   return (
     <div className="p-4 space-y-6">
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null)
+        }}
+      >
+        <AlertDialogContent
+          onPointerDownOutside={(e) => deleting && e.preventDefault()}
+          onEscapeKeyDown={(e) => deleting && e.preventDefault()}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('admin.deleteConfirmTitle', 'Delete knowledge base')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget ? t('admin.deleteConfirmDescription', { workspace: deleteTarget }) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                void confirmDeleteKb()
+              }}
+            >
+              {deleting ? t('common.loading', 'Loading…') : t('admin.delete', 'Delete')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between">
         <div>
           <div className="text-lg font-semibold">{t('admin.title', 'Admin Console')}</div>
@@ -137,7 +200,7 @@ export default function AdminConsole() {
             {t('admin.subtitle', 'Manage knowledge bases and workspace access (deny-by-default).')}
           </div>
         </div>
-        <Button variant="secondary" onClick={() => refreshKbs()}>
+        <Button type="button" variant="secondary" onClick={() => refreshKbs()}>
           {t('admin.refresh', 'Refresh')}
         </Button>
       </div>
@@ -146,6 +209,7 @@ export default function AdminConsole() {
 
       <section className="rounded-md border p-4 space-y-3">
         <div className="font-medium">{t('admin.kbs', 'Knowledge Bases')}</div>
+        <p className="text-sm text-muted-foreground leading-snug">{t('admin.kbsHint')}</p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           <Input
             placeholder={t('admin.workspace', 'workspace (e.g. tech_kb)')}
@@ -162,7 +226,9 @@ export default function AdminConsole() {
             value={newDescription}
             onChange={(e) => setNewDescription(e.target.value)}
           />
-          <Button onClick={onCreateKb}>{t('admin.create', 'Create')}</Button>
+          <Button type="button" onClick={onCreateKb}>
+            {t('admin.create', 'Create')}
+          </Button>
         </div>
 
         <div className="space-y-2">
@@ -171,9 +237,10 @@ export default function AdminConsole() {
           ) : (
             <div className="divide-y rounded-md border">
               {kbs.map((kb) => (
-                <div key={kb.workspace} className="flex items-center justify-between p-2">
+                <div key={kb.workspace} className="flex items-center justify-between gap-2 p-2">
                   <button
-                    className={`text-left flex-1 ${selectedWorkspace === kb.workspace ? 'font-semibold' : ''}`}
+                    type="button"
+                    className={`text-left flex-1 min-w-0 ${selectedWorkspace === kb.workspace ? 'font-semibold' : ''}`}
                     onClick={() => setSelectedWorkspace(kb.workspace)}
                   >
                     <div>{kb.workspace}</div>
@@ -185,7 +252,16 @@ export default function AdminConsole() {
                       </div>
                     )}
                   </button>
-                  <Button variant="destructive" onClick={() => onDeleteKb(kb.workspace)}>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="shrink-0"
+                    disabled={deleting}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteTarget(kb.workspace)
+                    }}
+                  >
                     {t('admin.delete', 'Delete')}
                   </Button>
                 </div>
@@ -197,6 +273,7 @@ export default function AdminConsole() {
 
       <section className="rounded-md border p-4 space-y-3">
         <div className="font-medium">{t('admin.acl', 'Workspace Access (ACL)')}</div>
+        <p className="text-sm text-muted-foreground leading-snug">{t('admin.aclHint')}</p>
         <div className="text-sm text-muted-foreground">
           {t('admin.selectedWorkspace', 'Selected workspace')}: <span className="font-mono">{selectedWorkspace || '-'}</span>
         </div>
@@ -207,7 +284,7 @@ export default function AdminConsole() {
               value={grantUsername}
               onChange={(e) => setGrantUsername(e.target.value)}
             />
-            <Button onClick={onGrant} disabled={!selectedWorkspace || !grantUsername.trim()}>
+            <Button type="button" onClick={onGrant} disabled={!selectedWorkspace || !grantUsername.trim()}>
               {t('admin.grant', 'Grant')}
             </Button>
           </div>
@@ -227,7 +304,7 @@ export default function AdminConsole() {
                       {u.granted_by ? ` · ${t('admin.grantedBy', 'by')}: ${u.granted_by}` : ''}
                     </div>
                   </div>
-                  <Button variant="secondary" onClick={() => onRevoke(u.username)}>
+                  <Button type="button" variant="secondary" onClick={() => onRevoke(u.username)}>
                     {t('admin.revoke', 'Revoke')}
                   </Button>
                 </div>

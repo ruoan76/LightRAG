@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { updateEntity, updateRelation, checkEntityNameExists } from '@/api/lightrag'
 import { useGraphStore } from '@/stores/graph'
 import { useSettingsStore } from '@/stores/settings'
+import { useWorkspaceActionsBlocked } from '@/hooks/useWorkspaceActionsBlocked'
+import { useWorkspaceBlockedHint } from '@/hooks/useWorkspaceKbUi'
 import { SearchHistoryManager } from '@/utils/SearchHistoryManager'
 import { PropertyName, EditIcon, PropertyValue } from './PropertyRowComponents'
 import PropertyEditDialog from './PropertyEditDialog'
@@ -48,6 +50,8 @@ const EditablePropertyRow = ({
   tooltip
 }: EditablePropertyRowProps) => {
   const { t } = useTranslation()
+  const workspaceActionsBlocked = useWorkspaceActionsBlocked()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
   const [isEditing, setIsEditing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentValue, setCurrentValue] = useState(initialValue)
@@ -63,6 +67,10 @@ const EditablePropertyRow = ({
   }, [initialValue])
 
   const handleEditClick = () => {
+    if (workspaceActionsBlocked) {
+      toast.error(workspaceBlockedHint ?? t('workspace.selectKbFirst'))
+      return
+    }
     if (isEditable && !isEditing) {
       setIsEditing(true)
       setErrorMessage(null)
@@ -75,6 +83,10 @@ const EditablePropertyRow = ({
   }
 
   const handleSave = async (value: string, options?: { allowMerge?: boolean }) => {
+    if (workspaceActionsBlocked) {
+      toast.error(workspaceBlockedHint ?? t('workspace.selectKbFirst'))
+      return
+    }
     if (isSubmitting || value === String(currentValue)) {
       setIsEditing(false)
       setErrorMessage(null)

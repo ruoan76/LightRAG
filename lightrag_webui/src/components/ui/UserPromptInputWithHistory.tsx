@@ -9,6 +9,7 @@ interface UserPromptInputWithHistoryProps {
   placeholder?: string
   className?: string
   id?: string
+  disabled?: boolean
   history: string[]
   onSelectFromHistory: (prompt: string) => void
   onDeleteFromHistory?: (index: number) => void
@@ -20,6 +21,7 @@ export default function UserPromptInputWithHistory({
   placeholder,
   className,
   id,
+  disabled = false,
   history,
   onSelectFromHistory,
   onDeleteFromHistory
@@ -47,6 +49,7 @@ export default function UserPromptInputWithHistory({
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return
     if (!isOpen) {
       if (e.key === 'ArrowDown' && history.length > 0) {
         e.preventDefault()
@@ -85,9 +88,10 @@ export default function UserPromptInputWithHistory({
       setSelectedIndex(-1)
       break
     }
-  }, [isOpen, selectedIndex, history, onSelectFromHistory])
+  }, [isOpen, selectedIndex, history, onSelectFromHistory, disabled])
 
   const handleInputClick = () => {
+    if (disabled) return
     if (history.length > 0) {
       setIsOpen(!isOpen)
       setSelectedIndex(-1)
@@ -132,6 +136,13 @@ export default function UserPromptInputWithHistory({
     }
   }, [onDeleteFromHistory, history.length, selectedIndex])
 
+  useEffect(() => {
+    if (disabled) {
+      setIsOpen(false)
+      setSelectedIndex(-1)
+    }
+  }, [disabled])
+
   return (
     <div className="relative" ref={dropdownRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <div className="relative">
@@ -144,9 +155,10 @@ export default function UserPromptInputWithHistory({
           onClick={handleInputClick}
           placeholder={placeholder}
           autoComplete="off"
+          disabled={disabled}
           className={cn(isHovered && history.length > 0 ? 'pr-5' : 'pr-2', 'w-full', className)}
         />
-        {isHovered && history.length > 0 && (
+        {isHovered && history.length > 0 && !disabled && (
           <button
             type="button"
             onClick={handleInputClick}

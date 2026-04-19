@@ -21,17 +21,20 @@ export default function ApiSite() {
     <div className={`size-full ${isApiTabVisible ? '' : 'hidden'}`}>
       {iframeLoaded ? (
         <iframe
+          title={t('apiSite.docsFrameTitle')}
           src={backendBaseUrl + '/docs'}
           className="size-full w-full h-full"
           style={{ width: '100%', height: '100%', border: 'none' }}
-          // Use key to ensure iframe doesn't reload
           key="api-docs-iframe"
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-background">
           <div className="text-center">
-            <div className="mb-2 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-            <p>{t('apiSite.loading')}</p>
+            <div
+              className="mx-auto mb-3 h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent"
+              aria-hidden
+            />
+            <p className="text-muted-foreground text-sm">{t('apiSite.loading')}</p>
           </div>
         </div>
       )}

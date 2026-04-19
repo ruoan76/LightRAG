@@ -1,9 +1,14 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { backendBaseUrl, popularLabelsDefaultLimit, searchLabelsDefaultLimit } from '@/lib/constants'
+import { responseDetailLooksLikeWorkspaceAcl } from '@/utils/workspaceAclError'
 import { errorMessage } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/state'
+import { workspaceActionsBlockedFromStores } from '@/hooks/useWorkspaceActionsBlocked'
 import { navigationService } from '@/services/navigation'
+import { getWorkspaceAbortSignal } from '@/services/workspaceController'
+import i18n from '@/i18n'
+import { toast } from 'sonner'
 
 // Types
 export type LightragNodeType = {
@@ -278,6 +283,16 @@ export type LoginResponse = {
 export const InvalidApiKeyError = 'Invalid API Key'
 export const RequireApiKeError = 'API Key required'
 
+export { WORKSPACE_ACCESS_DENIED_CODE } from '@/utils/workspaceAclError'
+
+/** Paths that carry LIGHTRAG-WORKSPACE and represent KB data (not admin grant APIs). */
+function requestTargetsWorkspaceDataApi(url: string): boolean {
+  if (!url) return false
+  const path = url.includes('://') ? url.replace(/^.*\/\/[^/]+/, '') : url
+  if (path.includes('/admin/')) return false
+  return /\/(documents|query|graphs|graph)\b/.test(path)
+}
+
 // Axios instance
 const axiosInstance = axios.create({
   baseURL: backendBaseUrl,
@@ -356,6 +371,38 @@ axiosInstance.interceptors.request.use((config) => {
   if (workspace) {
     config.headers['LIGHTRAG-WORKSPACE'] = workspace
   }
+
+  // Snapshot workspace for 403 stale-response detection (B2)
+  ;(config as InternalAxiosRequestConfig & { __workspaceSnapshot?: string | null }).__workspaceSnapshot =
+    workspace ?? null
+
+  // Cancel in-flight requests when workspace changes (B4). Skip admin APIs — they are global
+  // (KB management) and must not be aborted when the user switches workspace mid-request.
+  const rawUrl = config.url || ''
+  const base = typeof config.baseURL === 'string' ? config.baseURL : ''
+  const combined = `${base}${rawUrl}`
+  const isAdminApi =
+    rawUrl.includes('/admin/') || combined.includes('/admin/') || rawUrl.includes('admin%2F')
+  if (!isAdminApi) {
+    config.signal = getWorkspaceAbortSignal()
+  }
+
+  if (
+    import.meta.env.DEV &&
+    token &&
+    workspaceActionsBlockedFromStores() &&
+    config.url &&
+    !config.url.includes('/login') &&
+    !config.url.includes('/auth-status') &&
+    !config.url.includes('/health') &&
+    !(config.headers as Record<string, string | undefined>)['X-Skip-Workspace-403-Handler']
+  ) {
+    console.warn(
+      '[LightRAG] Request without LIGHTRAG-WORKSPACE (user may hit default server workspace):',
+      config.url
+    )
+  }
+
   return config
 })
 
@@ -443,6 +490,59 @@ axiosInstance.interceptors.response.use(
         navigationService.navigateToLogin();
         return Promise.reject(new Error('Authentication required'));
       }
+
+      // 403: workspace ACL — reconcile allowed KB list when request matches current workspace (B2)
+      if (error.response?.status === 403) {
+        const cfg = error.config as InternalAxiosRequestConfig & {
+          __workspaceSnapshot?: string | null
+          headers?: Record<string, string | undefined>
+        }
+        const skipHandler = cfg?.headers?.['X-Skip-Workspace-403-Handler']
+        if (!skipHandler) {
+          const headers = cfg?.headers ?? {}
+          const hadWorkspace = !!(
+            headers['LIGHTRAG-WORKSPACE'] ||
+            (headers as Record<string, string>)['LIGHTRAG-WORKSPACE']
+          )
+          const snap = cfg?.__workspaceSnapshot ?? null
+          const current = useSettingsStore.getState().currentWorkspace
+
+          if (snap !== null && snap !== undefined && snap !== current) {
+            return Promise.reject(error)
+          }
+
+          const url = cfg?.url || ''
+          const shouldReconcileKb =
+            hadWorkspace &&
+            !useAuthStore.getState().isGuestMode &&
+            !url.includes('/admin/me/kbs') &&
+            (responseDetailLooksLikeWorkspaceAcl(error.response?.data) ||
+              requestTargetsWorkspaceDataApi(url))
+
+          if (shouldReconcileKb) {
+            try {
+              const r = await axiosInstance.get('/admin/me/kbs', {
+                headers: { 'X-Skip-Workspace-403-Handler': '1' }
+              })
+              const workspaces: string[] = r.data?.workspaces ?? []
+              const persisted = useSettingsStore.getState().currentWorkspace
+              const next =
+                persisted && workspaces.includes(persisted)
+                  ? persisted
+                  : workspaces[0] ?? null
+
+              if (next !== persisted) {
+                useSettingsStore.getState().setCurrentWorkspace(next)
+              }
+
+              toast.info(i18n.t('workspace.accessAdjusted'))
+            } catch {
+              /* keep generic error below */
+            }
+          }
+        }
+      }
+
       throw new Error(
         `${error.response.status} ${error.response.statusText}\n${JSON.stringify(
           error.response.data
@@ -524,7 +624,8 @@ export const queryTextStream = async (
 ) => {
   const apiKey = useSettingsStore.getState().apiKey;
   const token = localStorage.getItem('LIGHTRAG-API-TOKEN');
-  const headers: HeadersInit = {
+  const workspace = useSettingsStore.getState().currentWorkspace;
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/x-ndjson',
   };
@@ -534,12 +635,18 @@ export const queryTextStream = async (
   if (apiKey) {
     headers['X-API-Key'] = apiKey;
   }
+  if (workspace) {
+    headers['LIGHTRAG-WORKSPACE'] = workspace;
+  }
+
+  const streamSignal = getWorkspaceAbortSignal();
 
   try {
     const response = await fetch(`${backendBaseUrl}/query/stream`, {
       method: 'POST',
-      headers: headers,
+      headers,
       body: JSON.stringify(request),
+      signal: streamSignal,
     });
 
     if (!response.ok) {
@@ -563,6 +670,7 @@ export const queryTextStream = async (
               method: 'POST',
               headers: retryHeaders,
               body: JSON.stringify(request),
+              signal: streamSignal,
             });
 
             if (!retryResponse.ok) {

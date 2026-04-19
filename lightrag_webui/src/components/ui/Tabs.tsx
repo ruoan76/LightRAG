@@ -44,6 +44,8 @@ const TabsContent = React.forwardRef<
     className={cn(
       'ring-offset-background focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
       'data-[state=inactive]:invisible data-[state=active]:visible',
+      // forceMount keeps WebGL/graph mounted; invisible alone can still leave canvas receiving clicks above other tabs
+      'data-[state=inactive]:pointer-events-none data-[state=active]:pointer-events-auto',
       'h-full w-full',
       className
     )}

@@ -6,6 +6,9 @@ from lightrag.api.acl_store import ACLStore
 from lightrag.api.utils_api import AuthContext, get_combined_auth_dependency
 from lightrag.api.workspace_manager import WorkspaceManager
 
+# Stable JSON `detail.code` for WebUI 403 reconciliation (see lightrag_webui axios interceptor).
+WORKSPACE_ACCESS_DENIED_CODE = "workspace_access_denied"
+
 
 def get_workspace_from_state(request: Request) -> str:
     ws = getattr(request.state, "workspace", None)
@@ -29,7 +32,10 @@ def make_workspace_auth_dependency(
         if not acl_store.is_allowed(username, workspace):
             raise HTTPException(
                 status_code=403,
-                detail="No access to this knowledge base workspace",
+                detail={
+                    "code": WORKSPACE_ACCESS_DENIED_CODE,
+                    "message": "No access to this knowledge base workspace",
+                },
             )
         return auth
 

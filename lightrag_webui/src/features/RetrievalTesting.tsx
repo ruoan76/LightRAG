@@ -8,8 +8,15 @@ import { errorMessage } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings'
 import { useDebounce } from '@/hooks/useDebounce'
 import QuerySettings from '@/components/retrieval/QuerySettings'
+import WorkspaceRequiredCallout from '@/components/workspace/WorkspaceRequiredCallout'
+import { useWorkspaceActionsBlocked } from '@/hooks/useWorkspaceActionsBlocked'
+import {
+  useKbListStillResolving,
+  useWorkspaceSelectKbPrompt,
+  useWorkspaceBlockedHint
+} from '@/hooks/useWorkspaceKbUi'
 import { ChatMessage, MessageWithError } from '@/components/retrieval/ChatMessage'
-import { EraserIcon, SendIcon, CopyIcon } from 'lucide-react'
+import { EraserIcon, SendIcon, CopyIcon, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { copyToClipboard } from '@/utils/clipboard'
@@ -103,6 +110,11 @@ const parseCOTContent = (content: string) => {
 
 export default function RetrievalTesting() {
   const { t } = useTranslation()
+  const workspaceActionsBlocked = useWorkspaceActionsBlocked()
+  const showSelectKbPrompt = useWorkspaceSelectKbPrompt()
+  const kbListStillResolving = useKbListStillResolving()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
+
   // Get current tab to determine if this tab is active (for performance optimization)
   const currentTab = useSettingsStore.use.currentTab()
   const isRetrievalTabActive = currentTab === 'retrieval'
@@ -176,6 +188,11 @@ export default function RetrievalTesting() {
     async (e: React.FormEvent) => {
       e.preventDefault()
       if (!inputValue.trim() || isLoading) return
+
+      if (workspaceActionsBlocked) {
+        toast.error(workspaceBlockedHint ?? t('workspace.selectKbFirst'))
+        return
+      }
 
       // Parse query mode prefix
       const allowedModes: QueryMode[] = ['naive', 'local', 'global', 'hybrid', 'mix', 'bypass']
@@ -430,7 +447,7 @@ export default function RetrievalTesting() {
         }
       }
     },
-    [inputValue, isLoading, messages, setMessages, t, scrollToBottom]
+    [inputValue, isLoading, messages, setMessages, t, scrollToBottom, workspaceActionsBlocked, workspaceBlockedHint]
   )
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -694,6 +711,15 @@ export default function RetrievalTesting() {
   return (
     <div className="flex size-full gap-2 px-2 pb-12 overflow-hidden">
       <div className="flex grow flex-col gap-4">
+        {kbListStillResolving && (
+          <div className="flex shrink-0 items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+            <span>{t('workspace.loadingKbList')}</span>
+          </div>
+        )}
+        {showSelectKbPrompt && (
+          <WorkspaceRequiredCallout compact className="shrink-0" />
+        )}
         <div className="relative grow">
           <div
             ref={messagesContainerRef}
@@ -706,8 +732,8 @@ export default function RetrievalTesting() {
           >
             <div className="flex min-h-0 flex-1 flex-col gap-2">
               {messages.length === 0 ? (
-                <div className="text-muted-foreground flex h-full items-center justify-center text-lg">
-                  {t('retrievePanel.retrieval.startPrompt')}
+                <div className="text-muted-foreground flex h-full items-center justify-center px-4 text-center text-base">
+                  {workspaceBlockedHint ?? t('retrievePanel.retrieval.startPrompt')}
                 </div>
               ) : (
                 messages.map((message) => { // Remove unused idx
@@ -763,7 +789,13 @@ export default function RetrievalTesting() {
             type="button"
             variant="outline"
             onClick={clearMessages}
-            disabled={isLoading}
+            disabled={isLoading || workspaceActionsBlocked}
+            side="bottom"
+            tooltip={
+              workspaceActionsBlocked
+                ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+                : undefined
+            }
             size="sm"
           >
             <EraserIcon />
@@ -784,7 +816,7 @@ export default function RetrievalTesting() {
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder={t('retrievePanel.retrieval.placeholder')}
-                disabled={isLoading}
+                disabled={isLoading || workspaceActionsBlocked}
                 rows={1}
                 style={{
                   resize: 'none',
@@ -811,7 +843,7 @@ export default function RetrievalTesting() {
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder={t('retrievePanel.retrieval.placeholder')}
-                disabled={isLoading}
+                disabled={isLoading || workspaceActionsBlocked}
               />
             )}
             {/* Error message below input */}
@@ -819,13 +851,24 @@ export default function RetrievalTesting() {
               <div className="absolute left-0 top-full mt-1 text-xs text-red-500">{inputError}</div>
             )}
           </div>
-          <Button type="submit" variant="default" disabled={isLoading} size="sm">
+          <Button
+            type="submit"
+            variant="default"
+            disabled={isLoading || workspaceActionsBlocked}
+            side="bottom"
+            tooltip={
+              workspaceActionsBlocked
+                ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+                : undefined
+            }
+            size="sm"
+          >
             <SendIcon />
             {t('retrievePanel.retrieval.send')}
           </Button>
         </form>
       </div>
-      <QuerySettings />
+      <QuerySettings disabled={workspaceActionsBlocked} />
     </div>
   )
 }

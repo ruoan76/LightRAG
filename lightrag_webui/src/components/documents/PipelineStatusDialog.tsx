@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/Dialog'
 import Button from '@/components/ui/Button'
 import { getPipelineStatus, cancelPipeline, PipelineStatusResponse } from '@/api/lightrag'
+import { workspaceActionsBlockedFromStores } from '@/hooks/useWorkspaceActionsBlocked'
 import { errorMessage } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -72,6 +73,7 @@ export default function PipelineStatusDialog({
     if (!open) return
 
     const fetchStatus = async () => {
+      if (workspaceActionsBlockedFromStores()) return
       try {
         const data = await getPipelineStatus()
         setStatus(data)
@@ -88,6 +90,7 @@ export default function PipelineStatusDialog({
   // Handle cancel pipeline confirmation
   const handleConfirmCancel = async () => {
     setShowCancelConfirm(false)
+    if (workspaceActionsBlockedFromStores()) return
     try {
       const result = await cancelPipeline()
       if (result.status === 'cancellation_requested') {

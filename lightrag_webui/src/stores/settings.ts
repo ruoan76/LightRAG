@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSelectors } from '@/lib/utils'
 import { defaultQueryLabel } from '@/lib/constants'
 import { Message, QueryRequest } from '@/api/lightrag'
+import { abortInFlightWorkspaceRequests } from '@/services/workspaceController'
+import { useGraphStore } from '@/stores/graph'
 
 type Theme = 'dark' | 'light' | 'system'
 type Language = 'en' | 'zh' | 'fr' | 'ar' | 'zh_TW' | 'ru' | 'ja' | 'de' | 'uk' | 'ko'
@@ -90,7 +92,7 @@ interface SettingsState {
 
 const useSettingsStoreBase = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       theme: 'system',
       language: 'en',
       showPropertyPanel: true,
@@ -190,7 +192,22 @@ const useSettingsStoreBase = create<SettingsState>()(
 
       setApiKey: (apiKey: string | null) => set({ apiKey }),
 
-      setCurrentWorkspace: (currentWorkspace: string | null) => set({ currentWorkspace }),
+      setCurrentWorkspace: (currentWorkspace: string | null) => {
+        const prev = get().currentWorkspace
+        if (prev === currentWorkspace) {
+          return
+        }
+        abortInFlightWorkspaceRequests()
+        const gs = useGraphStore.getState()
+        gs.reset()
+        gs.setGraphDataFetchAttempted(false)
+        gs.setLabelsFetchAttempted(false)
+        gs.incrementGraphDataVersion()
+        set({
+          currentWorkspace,
+          retrievalHistory: []
+        })
+      },
 
       setCurrentTab: (tab: Tab) => set({ currentTab: tab }),
 

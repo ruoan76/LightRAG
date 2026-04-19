@@ -1,0 +1,31 @@
+# OrbStack / 本地 Docker：只用 GHCR 预构建镜像，不在本机 docker build（避免 Docker Hub 拉 oven/python 基础镜像超时）。
+# 数据与配置仍来自当前项目目录（rag_storage、inputs、.env）。
+# Ollama 在宿主机：请加上 docker-compose.host-ollama.yml，否则 .env 里 127.0.0.1 在容器内访问不到宿主机 Ollama。
+#
+# 启动：
+#   docker compose -f docker-compose.orbstack.yml -f docker-compose.host-ollama.yml pull
+#   docker compose -f docker-compose.orbstack.yml -f docker-compose.host-ollama.yml up -d
+#
+# 若需从源码构建（需能访问 Docker Hub），用默认的 docker-compose.yml：
+#   docker compose -f docker-compose.yml -f docker-compose.host-ollama.yml up --build -d
+#
+# 开发：改代码后自动重建并重启（Compose Watch，同样走 OrbStack 的 Docker）：
+#   ./scripts/docker-watch-orbstack.sh
+#   （使用 docker-compose.yml + host-ollama + docker-compose.watch.yml，勿与本文件混用）
+
+services:
+  lightrag:
+    container_name: lightrag
+    image: ghcr.io/hkuds/lightrag:latest
+    pull_policy: missing
+    ports:
+      - "${PORT:-9621}:9621"
+    volumes:
+      - ${RAG_STORAGE_MOUNT:-./rag_storage}:/app/data/rag_storage
+      - ${INPUT_DIR_MOUNT:-./inputs}:/app/data/inputs
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

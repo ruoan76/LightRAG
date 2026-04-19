@@ -21,6 +21,7 @@ import PaginationControls from '@/components/ui/PaginationControls'
 
 import {
   scanNewDocuments,
+  reprocessFailedDocuments,
   getDocumentsPaginated,
   DocsStatusesResponse,
   DocStatus,
@@ -31,9 +32,19 @@ import {
 import { errorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useBackendState } from '@/stores/state'
+import {
+  useWorkspaceActionsBlocked,
+  workspaceActionsBlockedFromStores
+} from '@/hooks/useWorkspaceActionsBlocked'
+import {
+  useKbListStillResolving,
+  useWorkspaceSelectKbPrompt,
+  useWorkspaceBlockedHint
+} from '@/hooks/useWorkspaceKbUi'
 
-import { RefreshCwIcon, ActivityIcon, ArrowUpIcon, ArrowDownIcon, RotateCcwIcon, CheckSquareIcon, XIcon, AlertTriangle, Info } from 'lucide-react'
+import { RefreshCwIcon, ActivityIcon, ArrowUpIcon, ArrowDownIcon, RotateCcwIcon, CheckSquareIcon, XIcon, AlertTriangle, Info, Loader2 } from 'lucide-react'
 import PipelineStatusDialog from '@/components/documents/PipelineStatusDialog'
+import WorkspaceRequiredCallout from '@/components/workspace/WorkspaceRequiredCallout'
 
 type StatusFilter = DocStatus | 'all';
 
@@ -227,6 +238,13 @@ export default function DocumentManager() {
   const [docs, setDocs] = useState<DocsStatusesResponse | null>(null)
 
   const currentTab = useSettingsStore.use.currentTab()
+  const currentWorkspace = useSettingsStore.use.currentWorkspace()
+
+  /** Logged-in user must have a selected knowledge base before mutating documents */
+  const workspaceActionsBlocked = useWorkspaceActionsBlocked()
+  const showSelectKbPrompt = useWorkspaceSelectKbPrompt()
+  const kbListStillResolving = useKbListStillResolving()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
   const showFileName = useSettingsStore.use.showFileName()
   const setShowFileName = useSettingsStore.use.setShowFileName()
   const documentsPageSize = useSettingsStore.use.documentsPageSize()
@@ -244,6 +262,7 @@ export default function DocumentManager() {
   })
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({ all: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isReprocessing, setIsReprocessing] = useState(false)
 
   // Sort state
   const [sortField, setSortField] = useState<SortField>('updated_at')
@@ -269,6 +288,7 @@ export default function DocumentManager() {
   // Add refs to track previous pipelineBusy state and current interval
   const prevPipelineBusyRef = useRef<boolean | undefined>(undefined);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevWorkspaceRef = useRef<string | null | undefined>(undefined);
 
   // Add retry mechanism state
   const [retryState, setRetryState] = useState({
@@ -681,6 +701,7 @@ export default function DocumentManager() {
   ) => {
     try {
       if (!isMountedRef.current) return;
+      if (workspaceActionsBlockedFromStores()) return;
 
       setIsRefreshing(true);
 
@@ -836,6 +857,7 @@ export default function DocumentManager() {
     try {
       // Check if component is still mounted before starting the request
       if (!isMountedRef.current) return;
+      if (workspaceActionsBlockedFromStores()) return;
 
       const { status, message, track_id: _track_id } = await scanNewDocuments(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
@@ -871,6 +893,44 @@ export default function DocumentManager() {
     }
   }, [t, startPollingInterval, currentTab, health, statusCounts, handleIntelligentRefresh])
 
+  const reprocessStuckDocuments = useCallback(async () => {
+    try {
+      if (!isMountedRef.current) return
+      if (workspaceActionsBlockedFromStores()) return
+
+      setIsReprocessing(true)
+      const { status, message } = await reprocessFailedDocuments()
+
+      if (!isMountedRef.current) return
+
+      toast.message(message || status)
+
+      useBackendState.getState().resetHealthCheckTimerDelayed(1000)
+
+      await handleIntelligentRefresh(undefined, false, 90000)
+
+      startPollingInterval(2000)
+
+      setTimeout(() => {
+        if (isMountedRef.current && currentTab === 'documents' && health) {
+          const hasActiveDocuments = hasActiveDocumentsStatus(statusCounts)
+          const normalInterval = hasActiveDocuments ? 5000 : 30000
+          startPollingInterval(normalInterval)
+        }
+      }, 15000)
+    } catch (err) {
+      if (isMountedRef.current) {
+        toast.error(
+          t('documentPanel.documentManager.errors.reprocessFailed', { error: errorMessage(err) })
+        )
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsReprocessing(false)
+      }
+    }
+  }, [t, startPollingInterval, currentTab, health, statusCounts, handleIntelligentRefresh])
+
   // Handle page size change - update state and save to store
   const handlePageSizeChange = useCallback((newPageSize: number) => {
     if (newPageSize === pagination.page_size) return;
@@ -894,6 +954,7 @@ export default function DocumentManager() {
   // Handle manual refresh with pagination reset logic
   const handleManualRefresh = useCallback(async () => {
     try {
+      if (workspaceActionsBlockedFromStores()) return;
       setIsRefreshing(true);
 
       // Fetch documents from the first page
@@ -953,7 +1014,7 @@ export default function DocumentManager() {
     // Skip the first render when prevPipelineBusyRef is undefined
     if (prevPipelineBusyRef.current !== undefined && prevPipelineBusyRef.current !== pipelineBusy) {
       // pipelineBusy state has changed, trigger immediate refresh
-      if (currentTab === 'documents' && health && isMountedRef.current) {
+      if (currentTab === 'documents' && health && isMountedRef.current && !workspaceActionsBlocked) {
         // Use intelligent refresh to preserve current page
         handleIntelligentRefresh();
 
@@ -971,12 +1032,13 @@ export default function DocumentManager() {
     health,
     handleIntelligentRefresh,
     statusCounts,
-    startPollingInterval
+    startPollingInterval,
+    workspaceActionsBlocked
   ]);
 
   // Set up intelligent polling with dynamic interval based on document status
   useEffect(() => {
-    if (currentTab !== 'documents' || !health) {
+    if (currentTab !== 'documents' || !health || workspaceActionsBlocked) {
       clearPollingInterval();
       return
     }
@@ -990,7 +1052,7 @@ export default function DocumentManager() {
     return () => {
       clearPollingInterval();
     }
-  }, [health, t, currentTab, statusCounts, startPollingInterval, clearPollingInterval])
+  }, [health, t, currentTab, statusCounts, startPollingInterval, clearPollingInterval, workspaceActionsBlocked])
 
   // Monitor docs changes to check status counts and trigger health check if needed
   useEffect(() => {
@@ -1051,8 +1113,10 @@ export default function DocumentManager() {
     useBackendState.getState().resetHealthCheckTimerDelayed(1000)
 
     // Schedule a health check 2 seconds after successful clear
-    startPollingInterval(2000)
-  }, [startPollingInterval])
+    if (!workspaceActionsBlocked) {
+      startPollingInterval(2000)
+    }
+  }, [startPollingInterval, workspaceActionsBlocked])
 
   // Handle documents cleared callback with proper interval reset
   const handleDocumentsCleared = useCallback(async () => {
@@ -1079,10 +1143,10 @@ export default function DocumentManager() {
 
     // Set appropriate polling interval based on current state
     // Since documents are cleared, use idle interval (30 seconds)
-    if (currentTab === 'documents' && health && isMountedRef.current) {
+    if (currentTab === 'documents' && health && isMountedRef.current && !workspaceActionsBlocked) {
       startPollingInterval(30000); // 30 seconds for idle state
     }
-  }, [clearPollingInterval, setStatusCounts, fetchDocuments, currentTab, health, startPollingInterval])
+  }, [clearPollingInterval, setStatusCounts, fetchDocuments, currentTab, health, startPollingInterval, workspaceActionsBlocked])
 
 
   // Handle showFileName change - switch sort field if currently sorting by first column
@@ -1101,6 +1165,55 @@ export default function DocumentManager() {
     setSelectedDocIds([])
   }, [pagination.page, statusFilter, sortField, sortDirection]);
 
+  // When knowledge base (workspace) changes: stop polling and clear lists so we never show another KB's docs
+  useEffect(() => {
+    if (currentTab !== 'documents') {
+      prevWorkspaceRef.current = currentWorkspace
+      return
+    }
+    if (prevWorkspaceRef.current === undefined) {
+      prevWorkspaceRef.current = currentWorkspace
+      return
+    }
+    if (prevWorkspaceRef.current === currentWorkspace) {
+      return
+    }
+    prevWorkspaceRef.current = currentWorkspace
+    clearPollingInterval()
+    setSelectedDocIds([])
+    setPageByStatus({
+      all: 1,
+      processed: 1,
+      preprocessed: 1,
+      processing: 1,
+      pending: 1,
+      failed: 1
+    })
+    setPagination(prev => ({ ...prev, page: 1 }))
+    setCurrentPageDocs([])
+    setStatusCounts({
+      all: 0,
+      processed: 0,
+      preprocessed: 0,
+      processing: 0,
+      pending: 0,
+      failed: 0
+    })
+    setDocs(null)
+  }, [currentWorkspace, currentTab, clearPollingInterval])
+
+  useEffect(() => {
+    if (workspaceActionsBlocked) {
+      setSelectedDocIds([])
+    }
+  }, [workspaceActionsBlocked])
+
+  useEffect(() => {
+    if (workspaceActionsBlocked && showPipelineStatus) {
+      setShowPipelineStatus(false)
+    }
+  }, [workspaceActionsBlocked, showPipelineStatus])
+
   // Central effect to handle all data fetching
   useEffect(() => {
     if (currentTab === 'documents') {
@@ -1108,6 +1221,7 @@ export default function DocumentManager() {
     }
   }, [
     currentTab,
+    currentWorkspace,
     pagination.page,
     pagination.page_size,
     statusFilter,
@@ -1122,23 +1236,63 @@ export default function DocumentManager() {
         <CardTitle className="text-lg">{t('documentPanel.documentManager.title')}</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col min-h-0 overflow-auto">
+        {kbListStillResolving && (
+          <div className="mb-3 flex shrink-0 items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+            <span>{t('workspace.loadingKbList')}</span>
+          </div>
+        )}
+        {showSelectKbPrompt && (
+          <div className="mb-3 shrink-0">
+            <WorkspaceRequiredCallout compact />
+          </div>
+        )}
         <div className="flex justify-between items-center gap-2 mb-2">
           <div className="flex gap-2">
             <Button
               variant="outline"
               onClick={scanDocuments}
               side="bottom"
-              tooltip={t('documentPanel.documentManager.scanTooltip')}
+              tooltip={
+                workspaceActionsBlocked
+                  ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+                  : t('documentPanel.documentManager.scanTooltip')
+              }
               size="sm"
+              disabled={workspaceActionsBlocked}
             >
               <RefreshCwIcon /> {t('documentPanel.documentManager.scanButton')}
             </Button>
             <Button
               variant="outline"
+              onClick={reprocessStuckDocuments}
+              side="bottom"
+              tooltip={
+                workspaceActionsBlocked
+                  ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+                  : t('documentPanel.documentManager.reprocessTooltip')
+              }
+              size="sm"
+              disabled={workspaceActionsBlocked || isReprocessing}
+            >
+              {isReprocessing ? (
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <RotateCcwIcon aria-hidden />
+              )}{' '}
+              {t('documentPanel.documentManager.reprocessButton')}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => setShowPipelineStatus(true)}
               side="bottom"
-              tooltip={t('documentPanel.documentManager.pipelineStatusTooltip')}
+              tooltip={
+                workspaceActionsBlocked
+                  ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+                  : t('documentPanel.documentManager.pipelineStatusTooltip')
+              }
               size="sm"
+              disabled={workspaceActionsBlocked}
               className={cn(
                 pipelineBusy && 'pipeline-busy'
               )}
@@ -1166,6 +1320,7 @@ export default function DocumentManager() {
               <DeleteDocumentsDialog
                 selectedDocIds={selectedDocIds}
                 onDocumentsDeleted={handleDocumentsDeleted}
+                disabled={workspaceActionsBlocked}
               />
             )}
             {isSelectionMode && hasCurrentPageSelection ? (
@@ -1179,6 +1334,7 @@ export default function DocumentManager() {
                     onClick={buttonProps.action}
                     side="bottom"
                     tooltip={buttonProps.text}
+                    disabled={workspaceActionsBlocked}
                   >
                     <IconComponent className="h-4 w-4" />
                     {buttonProps.text}
@@ -1186,9 +1342,15 @@ export default function DocumentManager() {
                 );
               })()
             ) : !isSelectionMode ? (
-              <ClearDocumentsDialog onDocumentsCleared={handleDocumentsCleared} />
+              <ClearDocumentsDialog
+                onDocumentsCleared={handleDocumentsCleared}
+                disabled={workspaceActionsBlocked}
+              />
             ) : null}
-            <UploadDocumentsDialog onDocumentsUploaded={() => handleIntelligentRefresh(undefined, false, 120000)} />
+            <UploadDocumentsDialog
+              onDocumentsUploaded={() => handleIntelligentRefresh(undefined, false, 120000)}
+              disabled={workspaceActionsBlocked}
+            />
             <PipelineStatusDialog
               open={showPipelineStatus}
               onOpenChange={setShowPipelineStatus}
@@ -1278,9 +1440,13 @@ export default function DocumentManager() {
                   variant="ghost"
                   size="sm"
                   onClick={handleManualRefresh}
-                  disabled={isRefreshing}
+                  disabled={isRefreshing || workspaceActionsBlocked}
                   side="bottom"
-                  tooltip={t('documentPanel.documentManager.refreshTooltip')}
+                  tooltip={
+                    workspaceActionsBlocked
+                      ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+                      : t('documentPanel.documentManager.refreshTooltip')
+                  }
                 >
                   <RotateCcwIcon className="h-4 w-4" />
                 </Button>
@@ -1465,7 +1631,7 @@ export default function DocumentManager() {
                             <Checkbox
                               checked={selectedDocIds.includes(doc.id)}
                               onCheckedChange={(checked) => handleDocumentSelect(doc.id, checked === true)}
-                              // disabled={doc.status !== 'processed'}
+                              disabled={workspaceActionsBlocked}
                               className="mx-auto"
                             />
                           </TableCell>

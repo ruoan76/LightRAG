@@ -1,5 +1,11 @@
 # LightRAG full-stack (API + WebUI) deployment.
-# One-time: copy env.example to .env and set LLM/embedding config; create data dirs (see docs/DockerDeployment.md).
+# One-time: copy env.example to .env and set LLM/embedding config (see docs/DockerDeployment.md).
+# Data dirs: default mounts match local dev (./rag_storage, ./inputs). Use ./data/... if you prefer.
+#
+# Ollama on the host (not in this compose file): .env often uses 127.0.0.1 for LLM/Embedding, which does NOT
+# reach the host from inside the container. Use:
+#   docker compose -f docker-compose.yml -f docker-compose.host-ollama.yml up -d --build
+# Or set LLM_BINDING_HOST / EMBEDDING_BINDING_HOST to http://host.docker.internal:11434 in .env for Docker-only.
 
 services:
   lightrag:
@@ -13,8 +19,8 @@ services:
     ports:
       - "${PORT:-9621}:9621"
     volumes:
-      - ./data/rag_storage:/app/data/rag_storage
-      - ./data/inputs:/app/data/inputs
+      - ${RAG_STORAGE_MOUNT:-./rag_storage}:/app/data/rag_storage
+      - ${INPUT_DIR_MOUNT:-./inputs}:/app/data/inputs
       - ./.env:/app/.env
     env_file:
       - .env

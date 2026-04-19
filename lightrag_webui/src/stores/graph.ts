@@ -245,7 +245,9 @@ const useGraphStoreBase = create<GraphState>()((set, get) => ({
     try {
       const nodeAttributes = sigmaGraph.getNodeAttributes(nodeId)
 
-      console.log('updateNodeAndSelect', nodeId, entityId, propertyName, newValue)
+      if (import.meta.env.DEV) {
+        console.log('updateNodeAndSelect', nodeId, entityId, propertyName, newValue)
+      }
 
       // For entity_id changes (node renaming) with raw graph storage
       if ((nodeId === entityId) && (propertyName === 'entity_id')) {

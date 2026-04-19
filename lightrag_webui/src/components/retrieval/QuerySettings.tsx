@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { cn } from '@/lib/utils'
 import { QueryMode, QueryRequest } from '@/api/lightrag'
 // Removed unused import for Text component
 import Checkbox from '@/components/ui/Checkbox'
@@ -16,10 +17,46 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip'
 import { useSettingsStore } from '@/stores/settings'
 import { useTranslation } from 'react-i18next'
+import { useWorkspaceBlockedHint } from '@/hooks/useWorkspaceKbUi'
 import { RotateCcw } from 'lucide-react'
 
-export default function QuerySettings() {
+type QuerySettingsResetButtonProps = {
+  onClick: () => void
+  title: string
+  disabled?: boolean
+}
+
+function QuerySettingsResetButton({ onClick, title, disabled }: QuerySettingsResetButtonProps) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className="mr-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title={title}
+          >
+            <RotateCcw className="h-3 w-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>{title}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+export type QuerySettingsProps = {
+  /** When true, parameters are read-only (e.g. no knowledge base selected). */
+  disabled?: boolean
+}
+
+export default function QuerySettings({ disabled = false }: QuerySettingsProps) {
   const { t } = useTranslation()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
   const querySettings = useSettingsStore((state) => state.querySettings)
   const userPromptHistory = useSettingsStore((state) => state.userPromptHistory)
 
@@ -51,29 +88,11 @@ export default function QuerySettings() {
     handleChange(key, defaultValues[key])
   }, [handleChange, defaultValues])
 
-  // Reset button component
-  const ResetButton = ({ onClick, title }: { onClick: () => void; title: string }) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onClick}
-            className="mr-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            title={title}
-          >
-            <RotateCcw className="h-3 w-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>{title}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-
   return (
-    <Card className="flex shrink-0 flex-col w-[280px]">
+    <Card
+      className={cn('flex w-[280px] shrink-0 flex-col', disabled && 'opacity-60')}
+      title={disabled ? workspaceBlockedHint ?? t('workspace.selectKbFirst') : undefined}
+    >
       <CardHeader className="px-4 pt-4 pb-2">
         <CardTitle>{t('retrievePanel.querySettings.parametersTitle')}</CardTitle>
         <CardDescription className="sr-only">{t('retrievePanel.querySettings.parametersDescription')}</CardDescription>
@@ -105,6 +124,7 @@ export default function QuerySettings() {
                   history={userPromptHistory}
                   placeholder={t('retrievePanel.querySettings.userPromptPlaceholder')}
                   className="h-9"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -125,6 +145,7 @@ export default function QuerySettings() {
               </TooltipProvider>
               <div className="flex items-center gap-1">
                 <Select
+                  disabled={disabled}
                   value={querySettings.mode}
                   onValueChange={(v) => handleChange('mode', v as QueryMode)}
                 >
@@ -145,9 +166,10 @@ export default function QuerySettings() {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <ResetButton
+                <QuerySettingsResetButton
                   onClick={() => handleReset('mode')}
                   title="Reset to default (Mix)"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -168,6 +190,7 @@ export default function QuerySettings() {
               </TooltipProvider>
               <div className="flex items-center gap-1">
                 <Input
+                  disabled={disabled}
                   id="top_k"
                   type="number"
                   value={querySettings.top_k ?? ''}
@@ -185,9 +208,10 @@ export default function QuerySettings() {
                   placeholder={t('retrievePanel.querySettings.topKPlaceholder')}
                   className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
-                <ResetButton
+                <QuerySettingsResetButton
                   onClick={() => handleReset('top_k')}
                   title="Reset to default"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -208,6 +232,7 @@ export default function QuerySettings() {
               </TooltipProvider>
               <div className="flex items-center gap-1">
                 <Input
+                  disabled={disabled}
                   id="chunk_top_k"
                   type="number"
                   value={querySettings.chunk_top_k ?? ''}
@@ -225,9 +250,10 @@ export default function QuerySettings() {
                   placeholder={t('retrievePanel.querySettings.chunkTopKPlaceholder')}
                   className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
-                <ResetButton
+                <QuerySettingsResetButton
                   onClick={() => handleReset('chunk_top_k')}
                   title="Reset to default"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -248,6 +274,7 @@ export default function QuerySettings() {
               </TooltipProvider>
               <div className="flex items-center gap-1">
                 <Input
+                  disabled={disabled}
                   id="max_entity_tokens"
                   type="number"
                   value={querySettings.max_entity_tokens ?? ''}
@@ -265,9 +292,10 @@ export default function QuerySettings() {
                   placeholder={t('retrievePanel.querySettings.maxEntityTokensPlaceholder')}
                   className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
-                <ResetButton
+                <QuerySettingsResetButton
                   onClick={() => handleReset('max_entity_tokens')}
                   title="Reset to default"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -288,6 +316,7 @@ export default function QuerySettings() {
               </TooltipProvider>
               <div className="flex items-center gap-1">
                 <Input
+                  disabled={disabled}
                   id="max_relation_tokens"
                   type="number"
                   value={querySettings.max_relation_tokens ?? ''}
@@ -305,9 +334,10 @@ export default function QuerySettings() {
                   placeholder={t('retrievePanel.querySettings.maxRelationTokensPlaceholder')}
                   className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
-                <ResetButton
+                <QuerySettingsResetButton
                   onClick={() => handleReset('max_relation_tokens')}
                   title="Reset to default"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -328,6 +358,7 @@ export default function QuerySettings() {
               </TooltipProvider>
               <div className="flex items-center gap-1">
                 <Input
+                  disabled={disabled}
                   id="max_total_tokens"
                   type="number"
                   value={querySettings.max_total_tokens ?? ''}
@@ -345,9 +376,10 @@ export default function QuerySettings() {
                   placeholder={t('retrievePanel.querySettings.maxTotalTokensPlaceholder')}
                   className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                 />
-                <ResetButton
+                <QuerySettingsResetButton
                   onClick={() => handleReset('max_total_tokens')}
                   title="Reset to default"
+                  disabled={disabled}
                 />
               </div>
             </>
@@ -371,6 +403,7 @@ export default function QuerySettings() {
                   className="mr-10 cursor-pointer"
                   id="enable_rerank"
                   checked={querySettings.enable_rerank}
+                  disabled={disabled}
                   onCheckedChange={(checked) => handleChange('enable_rerank', checked)}
                 />
               </div>
@@ -392,6 +425,7 @@ export default function QuerySettings() {
                   className="mr-10 cursor-pointer"
                   id="only_need_context"
                   checked={querySettings.only_need_context}
+                  disabled={disabled}
                   onCheckedChange={(checked) => {
                     handleChange('only_need_context', checked)
                     if (checked) {
@@ -418,6 +452,7 @@ export default function QuerySettings() {
                   className="mr-10 cursor-pointer"
                   id="only_need_prompt"
                   checked={querySettings.only_need_prompt}
+                  disabled={disabled}
                   onCheckedChange={(checked) => {
                     handleChange('only_need_prompt', checked)
                     if (checked) {
@@ -444,6 +479,7 @@ export default function QuerySettings() {
                   className="mr-10 cursor-pointer"
                   id="stream"
                   checked={querySettings.stream}
+                  disabled={disabled}
                   onCheckedChange={(checked) => handleChange('stream', checked)}
                 />
               </div>

@@ -13,6 +13,8 @@ import Input from '@/components/ui/Input'
 import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
 import { deleteDocuments } from '@/api/lightrag'
+import { workspaceActionsBlockedFromStores } from '@/hooks/useWorkspaceActionsBlocked'
+import { useWorkspaceBlockedHint } from '@/hooks/useWorkspaceKbUi'
 
 import { TrashIcon, AlertTriangleIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -36,10 +38,17 @@ const Label = ({
 interface DeleteDocumentsDialogProps {
   selectedDocIds: string[]
   onDocumentsDeleted?: () => Promise<void>
+  /** When true, delete trigger is disabled (e.g. no knowledge base selected for signed-in user). */
+  disabled?: boolean
 }
 
-export default function DeleteDocumentsDialog({ selectedDocIds, onDocumentsDeleted }: DeleteDocumentsDialogProps) {
+export default function DeleteDocumentsDialog({
+  selectedDocIds,
+  onDocumentsDeleted,
+  disabled: triggerDisabled
+}: DeleteDocumentsDialogProps) {
   const { t } = useTranslation()
+  const workspaceBlockedHint = useWorkspaceBlockedHint()
   const [open, setOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleteFile, setDeleteFile] = useState(false)
@@ -59,6 +68,7 @@ export default function DeleteDocumentsDialog({ selectedDocIds, onDocumentsDelet
 
   const handleDelete = useCallback(async () => {
     if (!isConfirmEnabled || selectedDocIds.length === 0) return
+    if (workspaceActionsBlockedFromStores()) return
 
     setIsDeleting(true)
     try {
@@ -99,13 +109,24 @@ export default function DeleteDocumentsDialog({ selectedDocIds, onDocumentsDelet
   }, [isConfirmEnabled, selectedDocIds, deleteFile, deleteLLMCache, setOpen, t, onDocumentsDeleted])
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (triggerDisabled && next) return
+        setOpen(next)
+      }}
+    >
       <DialogTrigger asChild>
         <Button
           variant="destructive"
           side="bottom"
-          tooltip={t('documentPanel.deleteDocuments.tooltip', { count: selectedDocIds.length })}
+          tooltip={
+            triggerDisabled
+              ? workspaceBlockedHint ?? t('workspace.selectKbFirst')
+              : t('documentPanel.deleteDocuments.tooltip', { count: selectedDocIds.length })
+          }
           size="sm"
+          disabled={triggerDisabled}
         >
           <TrashIcon/> {t('documentPanel.deleteDocuments.button')}
         </Button>

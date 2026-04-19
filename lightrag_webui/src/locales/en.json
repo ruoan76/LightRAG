@@ -6,6 +6,18 @@
     "dark": "Dark",
     "system": "System"
   },
+  "workspace": {
+    "loadingKbList": "Loading your knowledge bases…",
+    "listLoadFailed": "Could not load knowledge bases: {{error}}",
+    "retry": "Retry",
+    "noKbAssigned": "You have no knowledge base assigned yet. Contact an administrator to get access.",
+    "currentKb": "Knowledge base: {{name}}",
+    "scopeHint": "Documents, retrieval, and graph actions apply only to this knowledge base.",
+    "accessAdjusted": "Your access to this knowledge base changed. Switched to an available knowledge base.",
+    "selectKbFirst": "Select a knowledge base in the header first.",
+    "blockedTitle": "Knowledge base required",
+    "blockedDescription": "Choose a knowledge base from the workspace dropdown in the header. Documents, retrieval, and graph actions apply only after you select one."
+  },
   "header": {
     "documents": "Documents",
     "knowledgeGraph": "Knowledge Graph",
@@ -40,11 +52,14 @@
     "cancel": "Cancel",
     "save": "Save",
     "saving": "Saving...",
-    "saveFailed": "Save failed"
+    "saveFailed": "Save failed",
+    "loading": "Loading…"
   },
   "admin": {
     "title": "Admin Console",
     "subtitle": "Manage knowledge bases and workspace access (deny-by-default).",
+    "kbsHint": "Create or remove KB records here. To attach existing on-disk data, use a workspace name that matches a subdirectory under the server working directory (same naming rules: letters, digits, underscore, hyphen). Ongoing KB and access management is done in this console.",
+    "aclHint": "Select a workspace above, enter a username, then Grant. Users not granted cannot select that KB in the header. Revoke removes access.",
     "refresh": "Refresh",
     "kbs": "Knowledge Bases",
     "workspace": "workspace (e.g. tech_kb)",
@@ -53,6 +68,9 @@
     "create": "Create",
     "noKbs": "No KBs found.",
     "delete": "Delete",
+    "deleteConfirmTitle": "Delete knowledge base",
+    "deleteConfirmDescription": "This removes the KB record for “{{workspace}}” and deletes on-disk data under the server working directory when possible. This cannot be undone. Continue?",
+    "deleteSuccess": "Knowledge base {{workspace}} deleted",
     "acl": "Workspace Access (ACL)",
     "selectedWorkspace": "Selected workspace",
     "grantUser": "username to grant",
@@ -140,6 +158,8 @@
       "title": "Document Management",
       "scanButton": "Scan/Retry",
       "scanTooltip": "Scan and process documents in input folder, and also reprocess all failed documents",
+      "reprocessButton": "Requeue stuck",
+      "reprocessTooltip": "Requeue failed, pending, and stuck processing documents (e.g. after an interrupted pipeline)",
       "refreshTooltip": "Reset document list",
       "pipelineStatusButton": "Pipeline",
       "pipelineStatusTooltip": "View document processing pipeline status",
@@ -170,7 +190,8 @@
       "errors": {
         "loadFailed": "Failed to load documents\n{{error}}",
         "scanFailed": "Failed to scan documents\n{{error}}",
-        "scanProgressFailed": "Failed to get scan progress\n{{error}}"
+        "scanProgressFailed": "Failed to get scan progress\n{{error}}",
+        "reprocessFailed": "Failed to requeue documents\n{{error}}"
       },
       "fileNameLabel": "File Name",
       "showButton": "Show",
@@ -204,6 +225,8 @@
     }
   },
   "graphPanel": {
+    "loading": "Loading graph data…",
+    "switchingTheme": "Switching theme…",
     "dataIsTruncated": "Graph data is truncated to Max Nodes",
     "statusDialog": {
       "title": "LightRAG Server Settings",
@@ -468,7 +491,8 @@
     }
   },
   "apiSite": {
-    "loading": "Loading API Documentation..."
+    "loading": "Loading API documentation…",
+    "docsFrameTitle": "OpenAPI / Swagger documentation"
   },
   "apiKeyAlert": {
     "title": "API Key is required",

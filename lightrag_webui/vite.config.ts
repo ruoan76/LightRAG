@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import path from 'path'
 import { webuiPrefix } from './src/lib/constants'
 import react from '@vitejs/plugin-react-swc'
@@ -48,5 +48,14 @@ export default defineConfig({
           }
         ])
       ) : {}
+  },
+  test: {
+    environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
+    include: ['src/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/utils/workspaceAclError.ts', 'src/hooks/useWorkspaceActionsBlocked.ts']
+    }
   }
 })

@@ -1,18 +1,15 @@
-# syntax=docker/dockerfile:1
-
-# Frontend build stage
-FROM oven/bun:1 AS frontend-builder
+# BuildKit features (--mount) work without pulling docker/dockerfile:1 (avoids Docker Hub auth timeout on some networks).
+# Frontend build: use AWS Public ECR Node image (avoids docker.io/oven/bun pull timeouts).
+FROM public.ecr.aws/docker/library/node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /app
 
-# Copy frontend source code
 COPY lightrag_webui/ ./lightrag_webui/
 
-# Build frontend assets for inclusion in the API package
-RUN --mount=type=cache,target=/root/.bun/install/cache \
+RUN --mount=type=cache,target=/root/.npm \
     cd lightrag_webui \
-    && bun install --frozen-lockfile \
-    && bun run build
+    && npm ci \
+    && npm run build-no-bun
 
 # Python build stage - using uv for faster package installation
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
@@ -57,14 +54,13 @@ RUN --mount=type=cache,target=/root/.local/share/uv \
     uv sync --frozen --no-dev --extra api --extra offline --no-editable \
     && /app/.venv/bin/python -m ensurepip --upgrade
 
-# Prepare offline cache directory and pre-populate tiktoken data
-# Use uv run to execute commands from the virtual environment
+# Pre-populate tiktoken cache (use venv binary — `uv run` re-resolves deps and can conflict with extras)
 RUN mkdir -p /app/data/tiktoken \
-    && uv run lightrag-download-cache --cache-dir /app/data/tiktoken || status=$?; \
+    && /app/.venv/bin/lightrag-download-cache --cache-dir /app/data/tiktoken || status=$?; \
     if [ -n "${status:-}" ] && [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
 
-# Final stage
-FROM python:3.12-slim
+# Final stage (AWS Public ECR mirrors docker.io/library/python — avoids Docker Hub pull issues)
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 WORKDIR /app
 
